@@ -1,9 +1,11 @@
 module Main exposing (..)
 
-import Html exposing (Html, div, span, br, hr, h1, text)
+import Common exposing (..)
+import Player exposing (..)
+import Display
+import Utils
+import Html exposing (Html)
 import Html.App as App
-import Html.Attributes exposing (style)
-import Html.Events exposing (onClick)
 
 
 main : Program Never
@@ -14,58 +16,6 @@ main =
         , update = update
         , subscriptions = (\n -> Sub.none)
         }
-
-
-type Action
-    = NoOp
-    | Move Int Int
-    | Step
-
-
-type Dir
-    = N
-    | E
-    | S
-    | W
-
-
-type Space
-    = Empty
-    | Wall
-    | Exit
-    | NPC
-    | Treasure
-    | Enemy
-
-
-type alias Point =
-    { x : Int
-    , y : Int
-    }
-
-
-type alias Room =
-    { spaces : List (List Space)
-    }
-
-
-type alias Player =
-    { hp : Float
-    , facing : Dir
-    , location : Point
-    }
-
-
-type alias Game =
-    { room : Room
-    , player : Player
-    , score : Float
-    }
-
-
-point : Int -> Int -> Point
-point col row =
-    { x = col, y = row }
 
 
 emptyRoom : Room
@@ -80,32 +30,22 @@ emptyRoom =
     }
 
 
-newPlayer : Player
-newPlayer =
-    { hp = 100, facing = E, location = point 1 1 }
-
-
 newGame : Game
 newGame =
     { room = emptyRoom, player = newPlayer, score = 0 }
-
-
-at : Int -> List a -> Maybe a
-at idx list =
-    List.head <| List.drop idx list
 
 
 spaceAt : Room -> Point -> Space
 spaceAt room loc =
     let
         row =
-            at loc.y room.spaces
+            Utils.at loc.y room.spaces
     in
         case row of
             Just rx ->
                 let
                     r =
-                        at loc.x rx
+                        Utils.at loc.x rx
                 in
                     case r of
                         Just c ->
@@ -127,22 +67,26 @@ stepPlayer player room =
         y =
             player.location.y
 
+        testPoint =
+            \point' ->
+                if (spaceAt room point' == Empty) then
+                    point'
+                else
+                    player.location
+
         newLocation =
             case player.facing of
                 N ->
-                    if (spaceAt room (point x (y - 1)) == Empty) then
-                        point (x) (y - 1)
-                    else
-                        player.location
+                    testPoint <| point (x) (y - 1)
 
                 E ->
-                    point (x + 1) (y)
+                    testPoint <| point (x + 1) (y)
 
                 S ->
-                    point x (y + 1)
+                    testPoint <| point x (y + 1)
 
                 W ->
-                    point (x - 1) (y)
+                    testPoint <| point (x - 1) (y)
     in
         { player | location = newLocation }
 
@@ -186,57 +130,4 @@ init =
 
 view : Game -> Html Action
 view game =
-    div []
-        [ h1 [] [ text "Elm Warrior" ]
-        , hr [] []
-        , div [] (displayRoom game)
-        , hr [] []
-        , h1 [ onClick Step ] [ text "STEP" ]
-        , div [] [ text (toString game.player) ]
-        ]
-
-
-spaceToHtml : Player -> Int -> Int -> Space -> Html Action
-spaceToHtml player row col space =
-    let
-        markerText =
-            if player.location.x == col && player.location.y == row then
-                "\xF8FF"
-            else
-                case space of
-                    Empty ->
-                        " . "
-
-                    Wall ->
-                        "#"
-
-                    Exit ->
-                        "[ ]"
-
-                    NPC ->
-                        "?"
-
-                    Treasure ->
-                        "!"
-
-                    Enemy ->
-                        "X"
-    in
-        span
-            [ style
-                [ ( "width", "50px" )
-                , ( "display", "inline-block" )
-                ]
-            , onClick (Move row col)
-            ]
-            [ text markerText ]
-
-
-rowToHtml : Player -> Int -> List Space -> List (Html Action)
-rowToHtml player index row =
-    [ br [] [] ] ++ (List.indexedMap (spaceToHtml player index) row)
-
-
-displayRoom : Game -> List (Html Action)
-displayRoom { room, player } =
-    List.concat (List.indexedMap (rowToHtml player) room.spaces)
+    Display.view game
